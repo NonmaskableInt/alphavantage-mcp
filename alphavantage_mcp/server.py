@@ -1,5 +1,6 @@
 """AlphaVantage MCP Server implementation."""
 
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -26,6 +27,8 @@ from shared.types import (
     TimeFrame,
 )
 
+
+logger = logging.getLogger(__name__)
 
 # Valid parameter values
 VALID_OUTPUT_SIZES = {"compact", "full"}
