@@ -767,7 +767,8 @@ class AlphaVantageMCPServer:
 def main():
     """Main entry point for the Alpha Vantage MCP server."""
     server = AlphaVantageMCPServer()
-    server.app.run()
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    server.app.run(transport=transport)
 
 
 if __name__ == "__main__":
