@@ -181,9 +181,16 @@ class AlphaVantageMCPServer:
         debug = os.getenv("ALPHAVANTAGE_DEBUG", "false").lower() == "true"
         port = int(os.getenv("ALPHAVANTAGE_PORT", "8002"))
         log_level = os.getenv("ALPHAVANTAGE_LOG_LEVEL", "INFO")
+        host = os.getenv("MCP_HOST", "127.0.0.1")
 
-        # Initialize MCP server
-        self.app = FastMCP("alphavantage-data", debug=debug, port=port, log_level=log_level)
+        # Initialize MCP server with host
+        self.app = FastMCP(
+            "alphavantage-data",
+            debug=debug,
+            port=port,
+            log_level=log_level,
+            host=host,
+        )
         self._register_tools()
 
     async def _get_http_client(self) -> httpx.AsyncClient:
