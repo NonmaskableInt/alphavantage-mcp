@@ -439,10 +439,10 @@ class AlphaVantageMCPServer:
             """Get latest market news and sentiment.
 
             Args:
-                tickers: List of stock symbols (e.g., ["AAPL", "MSFT"])
-                topics: List of topics (e.g., ["technology", "earnings"])
-                time_from: Start time in YYYYMMDDTHHMM format
-                time_to: End time in YYYYMMDDTHHMM format
+                tickers: List of stock symbols (e.g., ["AAPL", "MSFT"]). Provide at least one ticker for best results.
+                topics: List of topics (e.g., ["technology", "earnings", "ipo", "mergers_and_acquisitions"])
+                time_from: Start time in YYYYMMDDTHHMM format (e.g., "20240101T0000")
+                time_to: End time in YYYYMMDDTHHMM format (e.g., "20240131T2359")
                 limit: Maximum number of articles to return (1-50, default: 10)
             """
             # Validate limit
@@ -486,8 +486,15 @@ class AlphaVantageMCPServer:
                 if "feed" not in data:
                     return NewsResponse(success=False, error="No news data found")
 
+                feed = data["feed"]
+                if not feed:
+                    return NewsResponse(
+                        success=False,
+                        error="No news articles found. Try specifying tickers (e.g., ['AAPL']) or topics to get relevant news.",
+                    )
+
                 articles = []
-                for article in data["feed"]:
+                for article in feed:
                     news_article = NewsArticle(
                         title=article.get("title", ""),
                         url=article.get("url", ""),
@@ -497,11 +504,15 @@ class AlphaVantageMCPServer:
                         sentiment_score=_parse_float(article.get("overall_sentiment_score")) or 0.0,
                         sentiment_label=article.get("overall_sentiment_label"),
                         topics=[
-                            topic.get("topic") for topic in article.get("topics", [])
+                            t for t in (
+                                topic.get("topic") for topic in article.get("topics", [])
+                            ) if t is not None
                         ],
                         tickers=[
-                            ticker.get("ticker")
-                            for ticker in article.get("ticker_sentiment", [])
+                            t for t in (
+                                ticker.get("ticker")
+                                for ticker in article.get("ticker_sentiment", [])
+                            ) if t is not None
                         ],
                     )
                     articles.append(news_article)
@@ -525,8 +536,8 @@ class AlphaVantageMCPServer:
 
             Args:
                 symbol: Stock symbol (e.g., AAPL, MSFT)
-                indicator: Technical indicator (RSI, MACD, BBANDS, SMA, EMA, STOCH, ADX, WILLR)
-                timeframe: Time frame for the data (MINUTE, FIVE_MINUTES, FIFTEEN_MINUTES, THIRTY_MINUTES, HOUR, DAILY, WEEKLY, MONTHLY)
+                indicator: Technical indicator type. Valid values: RSI, MACD, BBANDS, SMA, EMA, STOCH, ADX, WILLR
+                timeframe: Time frame interval. Valid values: 1Min, 5Min, 15Min, 30Min, 1Hour, 1Day, 1Week, 1Month (default: 1Day)
                 time_period: Time period for the indicator calculation (default: 14)
             """
             # Validate inputs
@@ -687,16 +698,33 @@ class AlphaVantageMCPServer:
                 # Convert to list of BarData objects
                 bars = []
                 for timestamp, row in data.iterrows():
+                    row_dict = row.to_dict()
+                    # Use flexible key lookup to handle possible column name variations
+                    open_val = _parse_float(row_dict.get("1. open"))
+                    high_val = _parse_float(row_dict.get("2. high"))
+                    low_val = _parse_float(row_dict.get("3. low"))
+                    close_val = _parse_float(row_dict.get("4. close"))
+                    volume_raw = row_dict.get("5. volume") or row_dict.get("6. volume")
+                    volume_val = _parse_int(volume_raw)
+
+                    if open_val is None or high_val is None or low_val is None or close_val is None or volume_val is None:
+                        continue  # Skip bars with missing required fields
+
                     bar = BarData(
                         symbol=symbol,
                         timestamp=timestamp.to_pydatetime(),
-                        open=float(row["1. open"]),
-                        high=float(row["2. high"]),
-                        low=float(row["3. low"]),
-                        close=float(row["4. close"]),
-                        volume=int(row["5. volume"]),
+                        open=open_val,
+                        high=high_val,
+                        low=low_val,
+                        close=close_val,
+                        volume=volume_val,
                     )
                     bars.append(bar)
+
+                if not bars:
+                    return BarsResponse(
+                        success=False, error=f"No valid price data found for {symbol}"
+                    )
 
                 return BarsResponse(success=True, data=bars)
             except Exception as e:
@@ -708,11 +736,11 @@ class AlphaVantageMCPServer:
             timeframe: TimeFrame = TimeFrame.FIVE_MINUTES,
             outputsize: str = "compact",
         ) -> BarsResponse:
-            """Get intraday price data.
+            """Get intraday price data (requires premium API key).
 
             Args:
                 symbol: Stock symbol (e.g., AAPL, MSFT)
-                timeframe: Time frame (MINUTE, FIVE_MINUTES, FIFTEEN_MINUTES, THIRTY_MINUTES, HOUR)
+                timeframe: Time frame interval. Valid values: 1Min, 5Min, 15Min, 30Min, 1Hour (default: 5Min)
                 outputsize: 'compact' (last 100 data points) or 'full' (30+ days)
             """
             if error := _validate_symbol(symbol):
@@ -755,16 +783,32 @@ class AlphaVantageMCPServer:
                 # Convert to list of BarData objects
                 bars = []
                 for timestamp, row in data.iterrows():
+                    row_dict = row.to_dict()
+                    open_val = _parse_float(row_dict.get("1. open"))
+                    high_val = _parse_float(row_dict.get("2. high"))
+                    low_val = _parse_float(row_dict.get("3. low"))
+                    close_val = _parse_float(row_dict.get("4. close"))
+                    volume_raw = row_dict.get("5. volume") or row_dict.get("6. volume")
+                    volume_val = _parse_int(volume_raw)
+
+                    if open_val is None or high_val is None or low_val is None or close_val is None or volume_val is None:
+                        continue
+
                     bar = BarData(
                         symbol=symbol,
                         timestamp=timestamp.to_pydatetime(),
-                        open=float(row["1. open"]),
-                        high=float(row["2. high"]),
-                        low=float(row["3. low"]),
-                        close=float(row["4. close"]),
-                        volume=int(row["5. volume"]),
+                        open=open_val,
+                        high=high_val,
+                        low=low_val,
+                        close=close_val,
+                        volume=volume_val,
                     )
                     bars.append(bar)
+
+                if not bars:
+                    return BarsResponse(
+                        success=False, error=f"No valid intraday data found for {symbol}"
+                    )
 
                 return BarsResponse(success=True, data=bars)
             except Exception as e:
