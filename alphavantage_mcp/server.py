@@ -554,7 +554,7 @@ class AlphaVantageMCPServer:
             if not av_interval:
                 return TechnicalIndicatorResponse(
                     success=False,
-                    error=f"Invalid timeframe: {timeframe}. Valid options: {', '.join(t.name for t in TimeFrame)}",
+                    error=f"Invalid timeframe: {timeframe}. Valid options: {', '.join(t.value for t in TimeFrame)}",
                 )
 
             # Get the indicator value (handles both enum and string)
@@ -607,11 +607,11 @@ class AlphaVantageMCPServer:
                 # Convert to list of TechnicalIndicatorResult objects
                 results = []
                 for timestamp, row in data.iterrows():
-                    values = {
-                        col: float(val)
-                        for col, val in row.to_dict().items()
-                        if val != "None" and val is not None
-                    }
+                    values = {}
+                    for col, val in row.to_dict().items():
+                        parsed = _parse_float(val)
+                        if parsed is not None:
+                            values[col] = parsed
 
                     result = TechnicalIndicatorResult(
                         indicator=indicator_value,
@@ -704,7 +704,7 @@ class AlphaVantageMCPServer:
                     high_val = _parse_float(row_dict.get("2. high"))
                     low_val = _parse_float(row_dict.get("3. low"))
                     close_val = _parse_float(row_dict.get("4. close"))
-                    volume_raw = row_dict.get("5. volume") or row_dict.get("6. volume")
+                    volume_raw = row_dict.get("5. volume") if "5. volume" in row_dict else row_dict.get("6. volume")
                     volume_val = _parse_int(volume_raw)
 
                     if open_val is None or high_val is None or low_val is None or close_val is None or volume_val is None:
@@ -747,10 +747,10 @@ class AlphaVantageMCPServer:
                 return BarsResponse(success=False, error=error)
 
             if timeframe not in VALID_INTRADAY_TIMEFRAMES:
-                valid_names = ", ".join(t.name for t in VALID_INTRADAY_TIMEFRAMES)
+                valid_values = ", ".join(t.value for t in VALID_INTRADAY_TIMEFRAMES)
                 return BarsResponse(
                     success=False,
-                    error=f"Invalid timeframe for intraday: {timeframe.name}. Valid options: {valid_names}",
+                    error=f"Invalid timeframe for intraday: {timeframe.value}. Valid options: {valid_values}",
                 )
 
             if outputsize not in VALID_OUTPUT_SIZES:
@@ -788,7 +788,7 @@ class AlphaVantageMCPServer:
                     high_val = _parse_float(row_dict.get("2. high"))
                     low_val = _parse_float(row_dict.get("3. low"))
                     close_val = _parse_float(row_dict.get("4. close"))
-                    volume_raw = row_dict.get("5. volume") or row_dict.get("6. volume")
+                    volume_raw = row_dict.get("5. volume") if "5. volume" in row_dict else row_dict.get("6. volume")
                     volume_val = _parse_int(volume_raw)
 
                     if open_val is None or high_val is None or low_val is None or close_val is None or volume_val is None:
