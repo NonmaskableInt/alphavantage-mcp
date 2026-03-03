@@ -180,8 +180,8 @@ class AlphaVantageMCPServer:
         # Server configuration from environment
         debug = os.getenv("ALPHAVANTAGE_DEBUG", "false").lower() == "true"
         port = int(os.getenv("ALPHAVANTAGE_PORT", "8002"))
-        log_level = os.getenv("ALPHAVANTAGE_LOG_LEVEL", "INFO")
-        host = os.getenv("MCP_HOST", "127.0.0.1")
+        log_level = os.getenv("ALPHAVANTAGE_LOG_LEVEL", "INFO").upper()
+        host = os.environ.get("MCP_HOST") or os.environ.get("FASTMCP_HOST", "127.0.0.1")
 
         # Initialize MCP server with host
         self.app = FastMCP(
@@ -819,6 +819,12 @@ def main():
     """Main entry point for the Alpha Vantage MCP server."""
     server = AlphaVantageMCPServer()
     transport = os.getenv("MCP_TRANSPORT", "stdio")
+    logger.info(
+        "Starting AlphaVantage MCP server: transport=%s host=%s port=%s",
+        transport,
+        server.app.settings.host,
+        server.app.settings.port,
+    )
     server.app.run(transport=transport)
 
 
