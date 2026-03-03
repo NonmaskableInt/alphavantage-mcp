@@ -147,12 +147,15 @@ def _parse_news_timestamp(time_str: str) -> datetime:
         # Try parsing with different formats
         for fmt in ["%Y%m%d %H%M%S", "%Y-%m-%d %H:%M:%S", "%Y%m%d"]:
             try:
-                return datetime.strptime(clean_str, fmt)
+                return datetime.strptime(clean_str, fmt).replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
 
         # Last resort: try fromisoformat
-        return datetime.fromisoformat(clean_str)
+        dt = datetime.fromisoformat(clean_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     except (ValueError, TypeError):
         return datetime.now(timezone.utc)
 
@@ -616,7 +619,7 @@ class AlphaVantageMCPServer:
                     result = TechnicalIndicatorResult(
                         indicator=indicator_value,
                         symbol=symbol,
-                        timestamp=timestamp.to_pydatetime(),
+                        timestamp=timestamp.to_pydatetime().replace(tzinfo=timezone.utc),
                         values=values,
                     )
                     results.append(result)
@@ -712,7 +715,7 @@ class AlphaVantageMCPServer:
 
                     bar = BarData(
                         symbol=symbol,
-                        timestamp=timestamp.to_pydatetime(),
+                        timestamp=timestamp.to_pydatetime().replace(tzinfo=timezone.utc),
                         open=open_val,
                         high=high_val,
                         low=low_val,
@@ -796,7 +799,7 @@ class AlphaVantageMCPServer:
 
                     bar = BarData(
                         symbol=symbol,
-                        timestamp=timestamp.to_pydatetime(),
+                        timestamp=timestamp.to_pydatetime().replace(tzinfo=timezone.utc),
                         open=open_val,
                         high=high_val,
                         low=low_val,
