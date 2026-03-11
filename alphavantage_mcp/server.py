@@ -245,7 +245,7 @@ class AlphaVantageMCPServer:
         """Register all MCP tools."""
 
         @self.app.tool()
-        async def get_company_overview(symbol: str) -> CompanyResponse:
+        async def get_company_overview_alphavantage(symbol: str) -> CompanyResponse:
             """Get company fundamentals and overview.
 
             Args:
@@ -277,7 +277,7 @@ class AlphaVantageMCPServer:
                 return CompanyResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_income_statement(symbol: str) -> MCPResponse:
+        async def get_income_statement_alphavantage(symbol: str) -> MCPResponse:
             """Get company income statement data.
 
             Args:
@@ -315,7 +315,7 @@ class AlphaVantageMCPServer:
                 return MCPResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_balance_sheet(symbol: str) -> MCPResponse:
+        async def get_balance_sheet_alphavantage(symbol: str) -> MCPResponse:
             """Get company balance sheet data.
 
             Args:
@@ -352,7 +352,7 @@ class AlphaVantageMCPServer:
                 return MCPResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_cash_flow(symbol: str) -> MCPResponse:
+        async def get_cash_flow_alphavantage(symbol: str) -> MCPResponse:
             """Get company cash flow statement data.
 
             Args:
@@ -389,7 +389,7 @@ class AlphaVantageMCPServer:
                 return MCPResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_earnings(
+        async def get_earnings_alphavantage(
             symbol: str, period: Literal["quarterly", "annual"] = "quarterly"
         ) -> MCPResponse:
             """Get quarterly or annual earnings data.
@@ -432,7 +432,7 @@ class AlphaVantageMCPServer:
                 return MCPResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_market_news(
+        async def get_market_news_alphavantage(
             tickers: Optional[List[str]] = None,
             topics: Optional[List[str]] = None,
             time_from: Optional[str] = None,
@@ -529,7 +529,7 @@ class AlphaVantageMCPServer:
                 return NewsResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_technical_indicators(
+        async def get_technical_indicators_alphavantage(
             symbol: str,
             indicator: TechnicalIndicator,
             timeframe: TimeFrame = TimeFrame.DAILY,
@@ -664,7 +664,7 @@ class AlphaVantageMCPServer:
                 return TechnicalIndicatorResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_daily_prices(
+        async def get_daily_prices_alphavantage(
             symbol: str, outputsize: str = "compact"
         ) -> BarsResponse:
             """Get daily OHLCV data.
@@ -734,7 +734,7 @@ class AlphaVantageMCPServer:
                 return BarsResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_intraday_prices(
+        async def get_intraday_prices_alphavantage(
             symbol: str,
             timeframe: TimeFrame = TimeFrame.FIVE_MINUTES,
             outputsize: str = "compact",
