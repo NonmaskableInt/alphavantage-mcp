@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import httpx
 from alpha_vantage.fundamentaldata import FundamentalData
@@ -57,6 +57,19 @@ VALID_INTRADAY_INTERVALS = {"1min", "5min", "15min", "30min", "60min"}
 VALID_INTRADAY_TIMEFRAMES = {
     TimeFrame.MINUTE, TimeFrame.FIVE_MINUTES, TimeFrame.FIFTEEN_MINUTES,
     TimeFrame.THIRTY_MINUTES, TimeFrame.HOUR
+}
+
+# Normalize interval strings (handles "daily", "1Day", "5min", "5Min", etc.)
+INTERVAL_ALIASES: Dict[str, str] = {
+    "daily": "daily", "1day": "daily", "1Day": "daily",
+    "weekly": "weekly", "1week": "weekly", "1Week": "weekly",
+    "monthly": "monthly", "1month": "monthly", "1Month": "monthly",
+    "1min": "1min", "1Min": "1min",
+    "5min": "5min", "5Min": "5min",
+    "15min": "15min", "15Min": "15min",
+    "30min": "30min", "30Min": "30min",
+    "60min": "60min", "60Min": "60min",
+    "1hour": "60min", "1Hour": "60min",
 }
 
 # Data limits
@@ -432,8 +445,8 @@ class AlphaVantageMCPServer:
                 return MCPResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_market_news_alphavantage(
-            tickers: Optional[List[str]] = None,
+        async def get_market_news(
+            tickers: Optional[Union[str, List[str]]] = None,
             topics: Optional[List[str]] = None,
             time_from: Optional[str] = None,
             time_to: Optional[str] = None,
@@ -442,7 +455,7 @@ class AlphaVantageMCPServer:
             """Get latest market news and sentiment.
 
             Args:
-                tickers: List of stock symbols (e.g., ["AAPL", "MSFT"]). Provide at least one ticker for best results.
+                tickers: Stock symbol(s) to filter news (e.g., "NVDA" or ["AAPL", "MSFT"]). Provide at least one for best results.
                 topics: List of topics (e.g., ["technology", "earnings", "ipo", "mergers_and_acquisitions"])
                 time_from: Start time in YYYYMMDDTHHMM format (e.g., "20240101T0000")
                 time_to: End time in YYYYMMDDTHHMM format (e.g., "20240131T2359")
@@ -464,8 +477,9 @@ class AlphaVantageMCPServer:
                 }
 
                 if tickers:
-                    # Join list into comma-separated string, uppercase
-                    params["tickers"] = ",".join(t.upper() for t in tickers)
+                    # Accept either a string ("NVDA") or list (["AAPL", "MSFT"])
+                    ticker_list = [tickers] if isinstance(tickers, str) else tickers
+                    params["tickers"] = ",".join(t.upper() for t in ticker_list)
                 if topics:
                     # Join list into comma-separated string
                     params["topics"] = ",".join(topics)
@@ -529,10 +543,10 @@ class AlphaVantageMCPServer:
                 return NewsResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_technical_indicators_alphavantage(
+        async def get_technical_indicators(
             symbol: str,
             indicator: TechnicalIndicator,
-            timeframe: TimeFrame = TimeFrame.DAILY,
+            interval: str = "daily",
             time_period: int = 14,
         ) -> TechnicalIndicatorResponse:
             """Get technical indicators (RSI, MACD, Bollinger Bands, etc.).
@@ -540,7 +554,7 @@ class AlphaVantageMCPServer:
             Args:
                 symbol: Stock symbol (e.g., AAPL, MSFT)
                 indicator: Technical indicator type. Valid values: RSI, MACD, BBANDS, SMA, EMA, STOCH, ADX, WILLR
-                timeframe: Time frame interval. Valid values: 1Min, 5Min, 15Min, 30Min, 1Hour, 1Day, 1Week, 1Month (default: 1Day)
+                interval: Time interval. Valid values: daily, weekly, monthly, 1min, 5min, 15min, 30min, 60min (default: daily)
                 time_period: Time period for the indicator calculation (default: 14)
             """
             # Validate inputs
@@ -552,12 +566,12 @@ class AlphaVantageMCPServer:
                     success=False, error="time_period must be at least 1"
                 )
 
-            # Convert TimeFrame enum to AlphaVantage interval string
-            av_interval = TIMEFRAME_TO_AV_INTERVAL.get(timeframe)
+            # Normalize interval string to AlphaVantage interval
+            av_interval = INTERVAL_ALIASES.get(interval)
             if not av_interval:
                 return TechnicalIndicatorResponse(
                     success=False,
-                    error=f"Invalid timeframe: {timeframe}. Valid options: {', '.join(t.value for t in TimeFrame)}",
+                    error=f"Invalid interval: {interval}. Valid options: daily, weekly, monthly, 1min, 5min, 15min, 30min, 60min",
                 )
 
             # Get the indicator value (handles both enum and string)
@@ -664,7 +678,7 @@ class AlphaVantageMCPServer:
                 return TechnicalIndicatorResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_daily_prices_alphavantage(
+        async def get_daily_prices(
             symbol: str, outputsize: str = "compact"
         ) -> BarsResponse:
             """Get daily OHLCV data.
@@ -734,26 +748,26 @@ class AlphaVantageMCPServer:
                 return BarsResponse(success=False, error=str(e))
 
         @self.app.tool()
-        async def get_intraday_prices_alphavantage(
+        async def get_intraday_prices(
             symbol: str,
-            timeframe: TimeFrame = TimeFrame.FIVE_MINUTES,
+            interval: str = "5min",
             outputsize: str = "compact",
         ) -> BarsResponse:
             """Get intraday price data (requires premium API key).
 
             Args:
                 symbol: Stock symbol (e.g., AAPL, MSFT)
-                timeframe: Time frame interval. Valid values: 1Min, 5Min, 15Min, 30Min, 1Hour (default: 5Min)
+                interval: Intraday interval. Valid values: 1min, 5min, 15min, 30min, 60min (default: 5min)
                 outputsize: 'compact' (last 100 data points) or 'full' (30+ days)
             """
             if error := _validate_symbol(symbol):
                 return BarsResponse(success=False, error=error)
 
-            if timeframe not in VALID_INTRADAY_TIMEFRAMES:
-                valid_values = ", ".join(t.value for t in VALID_INTRADAY_TIMEFRAMES)
+            av_interval = INTERVAL_ALIASES.get(interval)
+            if not av_interval or av_interval not in VALID_INTRADAY_INTERVALS:
                 return BarsResponse(
                     success=False,
-                    error=f"Invalid timeframe for intraday: {timeframe.value}. Valid options: {valid_values}",
+                    error=f"Invalid interval for intraday: {interval}. Valid options: 1min, 5min, 15min, 30min, 60min",
                 )
 
             if outputsize not in VALID_OUTPUT_SIZES:
@@ -761,9 +775,6 @@ class AlphaVantageMCPServer:
                     success=False,
                     error=f"Invalid outputsize: {outputsize}. Valid options: compact, full",
                 )
-
-            # Convert TimeFrame to AlphaVantage interval string
-            av_interval = TIMEFRAME_TO_AV_INTERVAL[timeframe]
 
             try:
                 symbol = symbol.upper()
