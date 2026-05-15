@@ -1,5 +1,7 @@
 """AlphaVantage MCP Server implementation."""
 
+import csv
+import io
 import logging
 import os
 import re
@@ -211,9 +213,7 @@ class AlphaVantageMCPServer:
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create the shared HTTP client."""
-        if self._http_client is None or self._http_client.is_closed:
-            self._http_client = httpx.AsyncClient(timeout=30.0)
-        return self._http_client
+        return self.http_client
 
     @property
     def http_client(self) -> httpx.AsyncClient:
@@ -488,21 +488,20 @@ class AlphaVantageMCPServer:
             except Exception as exc:
                 return {"success": False, "data": [], "error": str(exc)}
 
-            text = resp.text or ""
+            text = resp.text
             # Alphavantage may return JSON error envelope instead of CSV on
             # rate-limit; detect and surface.
             if text.startswith("{"):
                 return {"success": False, "data": [], "error": text[:200]}
 
-            rows: list[dict] = []
-            lines = text.strip().split("\n")
-            if len(lines) < 2:
+            reader = csv.reader(io.StringIO(text))
+            try:
+                header = [h.strip() for h in next(reader)]
+            except StopIteration:
                 return {"success": True, "data": []}
-
-            header = [h.strip() for h in lines[0].split(",")]
             symbol_set = {s.upper() for s in symbols} if symbols else None
-            for line in lines[1:]:
-                cols = [c.strip() for c in line.split(",")]
+            rows: list[dict] = []
+            for cols in reader:
                 if len(cols) < len(header):
                     continue
                 row = dict(zip(header, cols))

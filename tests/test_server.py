@@ -823,6 +823,21 @@ class TestGetEarningsCalendar:
         assert "MSFT" in symbols
         assert "NVDA" in symbols
         assert "AAPL" not in symbols
+        assert len(result["data"]) == 2  # exactly two — no leakage
+
+    @pytest.mark.asyncio
+    async def test_http_error_returns_failure_envelope(self, server, monkeypatch):
+        """When the underlying HTTP call raises, return success=False with the error string."""
+        async def fake_get(*args, **kwargs):
+            raise RuntimeError("boom")
+        monkeypatch.setattr(server.http_client, "get", fake_get)
+        tools = server.app._tool_manager._tools
+        get_earnings_calendar = tools["get_earnings_calendar_alphavantage"].fn
+
+        result = await get_earnings_calendar()
+        assert result["success"] is False
+        assert result["data"] == []
+        assert "boom" in result["error"]
 
     @pytest.mark.asyncio
     async def test_handles_empty_estimate(self, server, monkeypatch):
