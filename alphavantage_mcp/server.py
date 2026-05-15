@@ -215,6 +215,18 @@ class AlphaVantageMCPServer:
             self._http_client = httpx.AsyncClient(timeout=30.0)
         return self._http_client
 
+    @property
+    def http_client(self) -> httpx.AsyncClient:
+        """Return the shared HTTP client, creating it if needed.
+
+        Unlike _get_http_client (async), this property creates the client
+        synchronously on first access. Suitable for direct use in tools that
+        call ``await self.http_client.get(...)`` without an extra await.
+        """
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(timeout=30.0)
+        return self._http_client
+
     def _build_company_overview(self, symbol: str, info: Dict[str, Any]) -> CompanyOverview:
         """Build a CompanyOverview from API response data."""
         return CompanyOverview(
@@ -443,6 +455,72 @@ class AlphaVantageMCPServer:
                 return MCPResponse(success=True, data=earnings_data)
             except Exception as e:
                 return MCPResponse(success=False, error=str(e))
+
+        @self.app.tool()
+        async def get_earnings_calendar_alphavantage(
+            symbols: Optional[List[str]] = None,
+            horizon: Literal["3month", "6month", "12month"] = "3month",
+        ) -> dict:
+            """Get upcoming earnings dates for the specified horizon.
+
+            Wraps Alphavantage's EARNINGS_CALENDAR endpoint (CSV-only).
+
+            Args:
+                symbols: Optional list of ticker symbols to filter to. If
+                    omitted, returns all upcoming earnings within the horizon.
+                horizon: Time window — "3month" (default), "6month", or
+                    "12month".
+
+            Returns:
+                {success: bool, data: [{symbol, report_date, fiscal_period,
+                                        estimated_eps}], error: Optional[str]}
+            """
+            params = {
+                "function": "EARNINGS_CALENDAR",
+                "horizon": horizon,
+                "apikey": self.api_key,
+            }
+            try:
+                resp = await self.http_client.get(
+                    "https://www.alphavantage.co/query", params=params
+                )
+                resp.raise_for_status()
+            except Exception as exc:
+                return {"success": False, "data": [], "error": str(exc)}
+
+            text = resp.text or ""
+            # Alphavantage may return JSON error envelope instead of CSV on
+            # rate-limit; detect and surface.
+            if text.startswith("{"):
+                return {"success": False, "data": [], "error": text[:200]}
+
+            rows: list[dict] = []
+            lines = text.strip().split("\n")
+            if len(lines) < 2:
+                return {"success": True, "data": []}
+
+            header = [h.strip() for h in lines[0].split(",")]
+            symbol_set = {s.upper() for s in symbols} if symbols else None
+            for line in lines[1:]:
+                cols = [c.strip() for c in line.split(",")]
+                if len(cols) < len(header):
+                    continue
+                row = dict(zip(header, cols))
+                sym = row.get("symbol", "").upper()
+                if symbol_set is not None and sym not in symbol_set:
+                    continue
+                est_raw = row.get("estimate", "")
+                try:
+                    est = float(est_raw) if est_raw else None
+                except ValueError:
+                    est = None
+                rows.append({
+                    "symbol": sym,
+                    "report_date": row.get("reportDate", ""),
+                    "fiscal_period": row.get("fiscalDateEnding", ""),
+                    "estimated_eps": est,
+                })
+            return {"success": True, "data": rows}
 
         @self.app.tool()
         async def get_market_news(

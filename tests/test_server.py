@@ -766,6 +766,87 @@ class TestGetMarketNews:
             assert call_args.kwargs["params"]["limit"] == 1
 
 
+class TestGetEarningsCalendar:
+    """Tests for the new get_earnings_calendar_alphavantage tool."""
+
+    @pytest.mark.asyncio
+    async def test_returns_parsed_csv(self, server, monkeypatch):
+        """Alphavantage EARNINGS_CALENDAR returns CSV; tool parses to dicts."""
+        sample_csv = (
+            "symbol,name,reportDate,fiscalDateEnding,estimate,currency\n"
+            "MSFT,Microsoft,2026-05-22,2026-03-31,3.45,USD\n"
+            "NVDA,Nvidia,2026-05-28,2026-04-30,1.05,USD\n"
+        )
+
+        async def fake_get(*args, **kwargs):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.text = sample_csv
+            mock_resp.raise_for_status = MagicMock()
+            return mock_resp
+
+        monkeypatch.setattr(server.http_client, "get", fake_get)
+        tools = server.app._tool_manager._tools
+        get_earnings_calendar = tools["get_earnings_calendar_alphavantage"].fn
+
+        result = await get_earnings_calendar()
+        assert result["success"] is True
+        assert len(result["data"]) == 2
+        assert result["data"][0] == {
+            "symbol": "MSFT", "report_date": "2026-05-22",
+            "fiscal_period": "2026-03-31", "estimated_eps": 3.45,
+        }
+
+    @pytest.mark.asyncio
+    async def test_filters_by_symbols(self, server, monkeypatch):
+        """When symbols= is provided, only matching rows returned."""
+        sample_csv = (
+            "symbol,name,reportDate,fiscalDateEnding,estimate,currency\n"
+            "MSFT,Microsoft,2026-05-22,2026-03-31,3.45,USD\n"
+            "NVDA,Nvidia,2026-05-28,2026-04-30,1.05,USD\n"
+            "AAPL,Apple,2026-06-01,2026-03-31,2.10,USD\n"
+        )
+
+        async def fake_get(*args, **kwargs):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.text = sample_csv
+            mock_resp.raise_for_status = MagicMock()
+            return mock_resp
+
+        monkeypatch.setattr(server.http_client, "get", fake_get)
+        tools = server.app._tool_manager._tools
+        get_earnings_calendar = tools["get_earnings_calendar_alphavantage"].fn
+
+        result = await get_earnings_calendar(symbols=["MSFT", "NVDA"])
+        symbols = [r["symbol"] for r in result["data"]]
+        assert "MSFT" in symbols
+        assert "NVDA" in symbols
+        assert "AAPL" not in symbols
+
+    @pytest.mark.asyncio
+    async def test_handles_empty_estimate(self, server, monkeypatch):
+        """Some rows have empty estimate column; parser must yield None."""
+        sample_csv = (
+            "symbol,name,reportDate,fiscalDateEnding,estimate,currency\n"
+            "MSFT,Microsoft,2026-05-22,2026-03-31,,USD\n"
+        )
+
+        async def fake_get(*args, **kwargs):
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.text = sample_csv
+            mock_resp.raise_for_status = MagicMock()
+            return mock_resp
+
+        monkeypatch.setattr(server.http_client, "get", fake_get)
+        tools = server.app._tool_manager._tools
+        get_earnings_calendar = tools["get_earnings_calendar_alphavantage"].fn
+
+        result = await get_earnings_calendar()
+        assert result["data"][0]["estimated_eps"] is None
+
+
 class TestErrorHandling:
     """Tests for error handling across all tools."""
 
