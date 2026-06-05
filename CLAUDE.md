@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git Workflow
+
+`main` is protected — no direct pushes. Always work on a feature branch and open a PR:
+
+```bash
+git checkout -b feat/your-feature
+# ... make changes, commit ...
+git push -u origin HEAD
+gh pr create --base main --fill
+# merge via GitHub UI or: gh pr merge --squash
+git checkout main && git pull
+```
+
+Run tests before committing: `uv run python -m pytest`
+
 ## Overview
 
 This is a standalone **AlphaVantage MCP Server** that provides comprehensive market data and fundamental analysis through the AlphaVantage API.
