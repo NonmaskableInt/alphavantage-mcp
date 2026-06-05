@@ -1,5 +1,6 @@
 """AlphaVantage MCP Server implementation."""
 
+import asyncio
 import csv
 import io
 import logging
@@ -634,6 +635,8 @@ class AlphaVantageMCPServer:
                 interval: Time interval. Valid values: daily, weekly, monthly, 1min, 5min, 15min, 30min, 60min (default: daily)
                 time_period: Time period for the indicator calculation (default: 14)
             """
+            logger.info("get_technical_indicators called: symbol=%s indicator=%s interval=%s time_period=%s", symbol, indicator, interval, time_period)
+
             # Validate inputs
             if error := _validate_symbol(symbol):
                 return TechnicalIndicatorResponse(success=False, error=error)
@@ -652,7 +655,7 @@ class AlphaVantageMCPServer:
                 )
 
             # Get the indicator value (handles both enum and string)
-            indicator_value = indicator.value if isinstance(indicator, TechnicalIndicator) else indicator.upper()
+            indicator_value = indicator.value if isinstance(indicator, TechnicalIndicator) else str(indicator).upper()
 
             try:
                 symbol = symbol.upper()
@@ -670,19 +673,23 @@ class AlphaVantageMCPServer:
                 # Get the indicator function
                 indicator_func = indicator_map.get(indicator_value)
                 if not indicator_func:
-                    valid_indicators = ", ".join(i.name for i in TechnicalIndicator)
+                    valid_indicators = ", ".join(i.value for i in TechnicalIndicator)
                     return TechnicalIndicatorResponse(
                         success=False,
                         error=f"Unsupported indicator: {indicator_value}. Valid options: {valid_indicators}",
                     )
 
                 # Call the indicator function with appropriate parameters
+                # Run in executor to avoid blocking the asyncio event loop
+                loop = asyncio.get_running_loop()
                 if indicator_value in (TechnicalIndicator.MACD.value, TechnicalIndicator.STOCHASTIC.value):
                     # These indicators don't use time_period
-                    data, _ = indicator_func(symbol, interval=av_interval)
+                    data, _ = await loop.run_in_executor(
+                        None, lambda: indicator_func(symbol, interval=av_interval)
+                    )
                 else:
-                    data, _ = indicator_func(
-                        symbol, interval=av_interval, time_period=time_period
+                    data, _ = await loop.run_in_executor(
+                        None, lambda: indicator_func(symbol, interval=av_interval, time_period=time_period)
                     )
 
                 if data.empty:
@@ -775,7 +782,9 @@ class AlphaVantageMCPServer:
 
             try:
                 symbol = symbol.upper()
-                data, _ = self.time_series.get_daily(symbol, outputsize=outputsize)
+                data, _ = await asyncio.get_running_loop().run_in_executor(
+                    None, lambda: self.time_series.get_daily(symbol, outputsize=outputsize)
+                )
 
                 if data.empty:
                     return BarsResponse(
@@ -855,8 +864,8 @@ class AlphaVantageMCPServer:
 
             try:
                 symbol = symbol.upper()
-                data, _ = self.time_series.get_intraday(
-                    symbol, interval=av_interval, outputsize=outputsize
+                data, _ = await asyncio.get_running_loop().run_in_executor(
+                    None, lambda: self.time_series.get_intraday(symbol, interval=av_interval, outputsize=outputsize)
                 )
 
                 if data.empty:

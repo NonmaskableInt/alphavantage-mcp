@@ -12,7 +12,6 @@ from alphavantage_mcp.server import (
     _validate_symbol,
     _check_rate_limit_error,
     _parse_news_timestamp,
-    TIMEFRAME_TO_AV_INTERVAL,
 )
 from shared.types import (
     CompanyResponse,
@@ -21,7 +20,6 @@ from shared.types import (
     TechnicalIndicatorResponse,
     BarsResponse,
     TechnicalIndicator,
-    TimeFrame,
 )
 
 
@@ -131,7 +129,7 @@ class TestGetCompanyOverview:
     async def test_get_company_overview_success(self, server):
         """Test successful company overview retrieval."""
         tools = server.app._tool_manager._tools
-        get_company_overview = tools["get_company_overview"].fn
+        get_company_overview = tools["get_company_overview_alphavantage"].fn
 
         result = await get_company_overview(symbol="AAPL")
 
@@ -153,7 +151,7 @@ class TestGetCompanyOverview:
         )
 
         tools = server.app._tool_manager._tools
-        get_company_overview = tools["get_company_overview"].fn
+        get_company_overview = tools["get_company_overview_alphavantage"].fn
 
         result = await get_company_overview(symbol="INVALID")
 
@@ -176,7 +174,7 @@ class TestGetCompanyOverview:
         )
 
         tools = server.app._tool_manager._tools
-        get_company_overview = tools["get_company_overview"].fn
+        get_company_overview = tools["get_company_overview_alphavantage"].fn
 
         result = await get_company_overview(symbol="TEST")
 
@@ -190,7 +188,7 @@ class TestGetCompanyOverview:
     async def test_get_company_overview_invalid_symbol(self, server):
         """Test company overview with invalid symbol."""
         tools = server.app._tool_manager._tools
-        get_company_overview = tools["get_company_overview"].fn
+        get_company_overview = tools["get_company_overview_alphavantage"].fn
 
         result = await get_company_overview(symbol="")
 
@@ -201,7 +199,7 @@ class TestGetCompanyOverview:
     async def test_get_company_overview_symbol_normalized(self, server):
         """Test that symbol is normalized to uppercase."""
         tools = server.app._tool_manager._tools
-        get_company_overview = tools["get_company_overview"].fn
+        get_company_overview = tools["get_company_overview_alphavantage"].fn
 
         await get_company_overview(symbol="aapl")
 
@@ -216,7 +214,7 @@ class TestGetIncomeStatement:
     async def test_get_income_statement_success(self, server):
         """Test successful income statement retrieval."""
         tools = server.app._tool_manager._tools
-        get_income_statement = tools["get_income_statement"].fn
+        get_income_statement = tools["get_income_statement_alphavantage"].fn
 
         result = await get_income_statement(symbol="AAPL")
 
@@ -235,7 +233,7 @@ class TestGetIncomeStatement:
         )
 
         tools = server.app._tool_manager._tools
-        get_income_statement = tools["get_income_statement"].fn
+        get_income_statement = tools["get_income_statement_alphavantage"].fn
 
         result = await get_income_statement(symbol="INVALID")
 
@@ -246,7 +244,7 @@ class TestGetIncomeStatement:
     async def test_get_income_statement_invalid_symbol(self, server):
         """Test income statement with invalid symbol."""
         tools = server.app._tool_manager._tools
-        get_income_statement = tools["get_income_statement"].fn
+        get_income_statement = tools["get_income_statement_alphavantage"].fn
 
         result = await get_income_statement(symbol="INVALID@SYMBOL")
 
@@ -261,7 +259,7 @@ class TestGetBalanceSheet:
     async def test_get_balance_sheet_success(self, server):
         """Test successful balance sheet retrieval."""
         tools = server.app._tool_manager._tools
-        get_balance_sheet = tools["get_balance_sheet"].fn
+        get_balance_sheet = tools["get_balance_sheet_alphavantage"].fn
 
         result = await get_balance_sheet(symbol="AAPL")
 
@@ -279,7 +277,7 @@ class TestGetBalanceSheet:
         )
 
         tools = server.app._tool_manager._tools
-        get_balance_sheet = tools["get_balance_sheet"].fn
+        get_balance_sheet = tools["get_balance_sheet_alphavantage"].fn
 
         result = await get_balance_sheet(symbol="INVALID")
 
@@ -297,7 +295,7 @@ class TestGetBalanceSheet:
         server.fundamental_data.get_balance_sheet_annual.return_value = (large_data, None)
 
         tools = server.app._tool_manager._tools
-        get_balance_sheet = tools["get_balance_sheet"].fn
+        get_balance_sheet = tools["get_balance_sheet_alphavantage"].fn
 
         result = await get_balance_sheet(symbol="AAPL")
 
@@ -312,7 +310,7 @@ class TestGetCashFlow:
     async def test_get_cash_flow_success(self, server):
         """Test successful cash flow retrieval."""
         tools = server.app._tool_manager._tools
-        get_cash_flow = tools["get_cash_flow"].fn
+        get_cash_flow = tools["get_cash_flow_alphavantage"].fn
 
         result = await get_cash_flow(symbol="AAPL")
 
@@ -329,7 +327,7 @@ class TestGetCashFlow:
         )
 
         tools = server.app._tool_manager._tools
-        get_cash_flow = tools["get_cash_flow"].fn
+        get_cash_flow = tools["get_cash_flow_alphavantage"].fn
 
         result = await get_cash_flow(symbol="INVALID")
 
@@ -346,7 +344,7 @@ class TestGetCashFlow:
         server.fundamental_data.get_cash_flow_annual.return_value = (large_data, None)
 
         tools = server.app._tool_manager._tools
-        get_cash_flow = tools["get_cash_flow"].fn
+        get_cash_flow = tools["get_cash_flow_alphavantage"].fn
 
         result = await get_cash_flow(symbol="AAPL")
 
@@ -361,7 +359,7 @@ class TestGetEarnings:
     async def test_get_earnings_quarterly_success(self, server):
         """Test successful quarterly earnings retrieval."""
         tools = server.app._tool_manager._tools
-        get_earnings = tools["get_earnings"].fn
+        get_earnings = tools["get_earnings_alphavantage"].fn
 
         result = await get_earnings(symbol="AAPL", period="quarterly")
 
@@ -373,7 +371,7 @@ class TestGetEarnings:
     async def test_get_earnings_annual_success(self, server):
         """Test successful annual earnings retrieval."""
         tools = server.app._tool_manager._tools
-        get_earnings = tools["get_earnings"].fn
+        get_earnings = tools["get_earnings_alphavantage"].fn
 
         result = await get_earnings(symbol="AAPL", period="annual")
 
@@ -390,7 +388,7 @@ class TestGetEarnings:
         )
 
         tools = server.app._tool_manager._tools
-        get_earnings = tools["get_earnings"].fn
+        get_earnings = tools["get_earnings_alphavantage"].fn
 
         result = await get_earnings(symbol="INVALID")
 
@@ -474,7 +472,7 @@ class TestGetIntradayPrices:
         tools = server.app._tool_manager._tools
         get_intraday_prices = tools["get_intraday_prices"].fn
 
-        await get_intraday_prices(symbol="AAPL", timeframe=TimeFrame.FIFTEEN_MINUTES)
+        await get_intraday_prices(symbol="AAPL", interval="15min")
 
         server.time_series.get_intraday.assert_called_with(
             "AAPL", interval="15min", outputsize="compact"
@@ -499,10 +497,10 @@ class TestGetIntradayPrices:
         tools = server.app._tool_manager._tools
         get_intraday_prices = tools["get_intraday_prices"].fn
 
-        result = await get_intraday_prices(symbol="AAPL", timeframe=TimeFrame.DAILY)
+        result = await get_intraday_prices(symbol="AAPL", interval="daily")
 
         assert result.success is False
-        assert "Invalid timeframe for intraday" in result.error
+        assert "Invalid interval for intraday" in result.error
 
 
 class TestGetTechnicalIndicators:
@@ -515,7 +513,7 @@ class TestGetTechnicalIndicators:
         get_technical_indicators = tools["get_technical_indicators"].fn
 
         result = await get_technical_indicators(
-            symbol="AAPL", indicator=TechnicalIndicator.RSI, timeframe=TimeFrame.DAILY, time_period=14
+            symbol="AAPL", indicator=TechnicalIndicator.RSI, interval="daily", time_period=14
         )
 
         assert isinstance(result, TechnicalIndicatorResponse)
@@ -533,7 +531,7 @@ class TestGetTechnicalIndicators:
         get_technical_indicators = tools["get_technical_indicators"].fn
 
         result = await get_technical_indicators(
-            symbol="AAPL", indicator=TechnicalIndicator.MACD, timeframe=TimeFrame.DAILY
+            symbol="AAPL", indicator=TechnicalIndicator.MACD, interval="daily"
         )
 
         assert result.success is True
@@ -549,7 +547,7 @@ class TestGetTechnicalIndicators:
         get_technical_indicators = tools["get_technical_indicators"].fn
 
         result = await get_technical_indicators(
-            symbol="AAPL", indicator=TechnicalIndicator.BOLLINGER_BANDS, timeframe=TimeFrame.DAILY, time_period=20
+            symbol="AAPL", indicator=TechnicalIndicator.BOLLINGER_BANDS, interval="daily", time_period=20
         )
 
         assert result.success is True
@@ -579,13 +577,13 @@ class TestGetTechnicalIndicators:
 
         # Test with weekly timeframe
         await get_technical_indicators(
-            symbol="AAPL", indicator=TechnicalIndicator.RSI, timeframe=TimeFrame.WEEKLY
+            symbol="AAPL", indicator=TechnicalIndicator.RSI, interval="weekly"
         )
         server.tech_indicators.get_rsi.assert_called_with("AAPL", interval="weekly", time_period=14)
 
         # Test with intraday timeframe
         await get_technical_indicators(
-            symbol="AAPL", indicator=TechnicalIndicator.SMA, timeframe=TimeFrame.FIVE_MINUTES
+            symbol="AAPL", indicator=TechnicalIndicator.SMA, interval="5min"
         )
         server.tech_indicators.get_sma.assert_called_with("AAPL", interval="5min", time_period=14)
 
@@ -873,7 +871,7 @@ class TestErrorHandling:
         )
 
         tools = server.app._tool_manager._tools
-        get_company_overview = tools["get_company_overview"].fn
+        get_company_overview = tools["get_company_overview_alphavantage"].fn
 
         result = await get_company_overview(symbol="AAPL")
 
